@@ -1,0 +1,4 @@
+- [Common Crawl web graph](common-crawl-webgraph.md) — graphinfo.json feed, ranks-file format (no vertices join needed), log-rank scoring rationale, design-subagent pitfalls.
+- [Edges sync pipeline](edges-pipeline.md) — watchlist-only referring domains, block-boundary early stop, per-target memory cap, sampled-coverage labeling, DataForSEO 24h cache.
+- [Corpus audit / CDX](corpus-audit.md) — CDX 404 = zero captures (cacheable), 2s politeness, cohort-consistency rule, building-flag polling contract.
+- [Orval codegen pitfalls](orval-codegen.md) — index.ts quote-style dedupe, path/query params name collision, hook signature shift when adding params.

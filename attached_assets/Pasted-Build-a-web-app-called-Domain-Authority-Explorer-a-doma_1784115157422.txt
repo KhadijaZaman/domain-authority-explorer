@@ -1,0 +1,24 @@
+Build a web app called “Domain Authority Explorer” - a domain backlink and authority checker similar to webgraph.metehan.ai, powered entirely by Common Crawl’s free precomputed Web Graph instead of a paid API.
+Tech stack: Python 3 (FastAPI) backend plus a lightweight HTML/CSS/JavaScript frontend, deployed as a single Replit app. Use DuckDB or SQLite as the local database. No API keys or secrets are needed since all Common Crawl data is public.
+PART 1 - Data sync job (run on a Replit Scheduled Deployment once a month):
+1) Fetch the release list from index.commoncrawl.org/web-graphs-index.html (or its JSON feed) and read the newest release name, such as cc-main-2026-apr-may-jun.
+2) Compare it to a stored last_processed_release value. If they match, log “already up to date” and exit without downloading anything.
+3) If it is a new release, stream-download <release-name>-domain-vertices.txt.gz and <release-name>-domain-ranks.txt.gz from https://data.commoncrawl.org/projects/hyperlinkgraph/<release-name>/. Skip the much larger -domain-edges.txt.gz file in this basic version.
+4) Decompress both files as streams (do not load fully into memory) and join them by their shared numeric ID into rows of (domain, harmonic_centrality, pagerank).
+5) Convert the reversed domain notation Common Crawl uses back into normal domain order, and normalize harmonic_centrality and pagerank into 0-100 percentile scores, labeled “Common Crawl Authority Score” and “Common Crawl Popularity Score” - never call it Google PageRank.
+6) Write results into a new table named after the release, then atomically swap a current_table pointer once loading is confirmed complete, so the live app never serves a half-loaded dataset. Archive the previous release’s table afterward.
+7) Log how many domains were loaded and how long the job took, update last_processed_release, and wrap downloads in retry-with-backoff so partial failures can safely re-run.
+PART 2 - Backend API:
+8) Expose GET /api/domain/<domain> returning that domain’s Authority Score, Popularity Score, and the Common Crawl release date the data came from; return a clear “not found in latest Common Crawl crawl” message for unknown domains.
+9) Expose GET /api/status returning the current release name and when it was last synced, so the frontend can show data freshness.
+PART 3 - Frontend:
+10) Build a homepage with one search box where a user types a domain (example.com) and clicks Check.
+11) Display the Authority Score and Popularity Score as large, clearly labeled numbers, plus a small note showing the data source and release date.
+12) Add a footnote clarifying these are Common Crawl’s own harmonic centrality and PageRank-style metrics, not Google’s, and that the data refreshes roughly monthly.
+Keep the whole app in one Replit project, and make sure the sync job and the web server can run independently of each other.
+DIFFERENTIATION FEATURES (add after the core build works):
+13) Historical trend: when writing each new release’s table, also append that domain’s score into a lookups_history table (domain, release_name, authority_score) whenever a user has previously looked it up, and plot a simple trend line across releases.
+14) New and lost referring domains (needs the edges file): if you also ingest the domain-edges.txt.gz for a domain of interest, diff this release’s inbound edges against last release’s and list “new referring domains this month” and “referring domains lost this month”.
+15) Bulk compare: accept up to 5 comma-separated domains in one request and return them as one ranked table instead of one at a time.
+16) Spam flag heuristic: when showing referring domains (from the edges file), flag any referring domain with very low outbound diversity as a possible low-quality or PBN-style link.
+17) Packaging (stretch goal): expose the same get_domain_authority(domain) function as a small public read-only API endpoint, so the tool can later power a Chrome extension or Google Sheets add-on

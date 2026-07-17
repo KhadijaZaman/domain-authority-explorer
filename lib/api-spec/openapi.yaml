@@ -1,0 +1,1426 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Domain Authority Explorer API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: domains
+    description: Domain authority lookups
+  - name: status
+    description: Data freshness and sync status
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /status:
+    get:
+      operationId: getStatus
+      tags: [status]
+      summary: Data freshness status
+      description: Returns the current Common Crawl release name, when it was last synced, and how many domains are loaded
+      responses:
+        "200":
+          description: Current sync status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncStatus"
+  /domain/{domain}:
+    get:
+      operationId: getDomain
+      tags: [domains]
+      summary: Look up a domain's authority scores
+      description: Returns the domain's Common Crawl Authority Score and Popularity Score
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Domain scores
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DomainScore"
+        "404":
+          description: Domain not found in latest Common Crawl crawl
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /domain/{domain}/history:
+    get:
+      operationId: getDomainHistory
+      tags: [domains]
+      summary: Historical scores for a domain
+      description: Returns previously recorded scores for this domain across Common Crawl releases
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: History points ordered oldest to newest
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DomainHistoryResponse"
+  /compare:
+    get:
+      operationId: compareDomains
+      tags: [domains]
+      summary: Bulk compare up to 5 domains
+      description: Accepts up to 5 comma-separated domains and returns them as one ranked table
+      parameters:
+        - name: domains
+          in: query
+          required: true
+          description: Comma-separated list of up to 5 domains
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Ranked comparison results (highest authority first)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DomainCompareEntry"
+        "400":
+          description: Invalid request (e.g. more than 5 domains)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /domains/top:
+    get:
+      operationId: getTopDomains
+      tags: [domains]
+      summary: Top ranked domains
+      description: Returns the highest-authority domains in the current dataset
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 10
+      responses:
+        "200":
+          description: Top domains ordered by authority
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TopDomain"
+  /lookups/recent:
+    get:
+      operationId: getRecentLookups
+      tags: [domains]
+      summary: Recently looked-up domains
+      description: Returns the most recent domain lookups made through the app
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        "200":
+          description: Recent lookups, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecentLookup"
+  /domain/{domain}/niche:
+    get:
+      operationId: getDomainNiche
+      tags: [domains]
+      summary: Get a domain's niche tag and within-niche percentile
+      description: Returns the niche tag (if any) and the domain's authority percentile among all tagged domains in the same niche
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Niche info (tag is null when untagged)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NicheInfo"
+    post:
+      operationId: setDomainNiche
+      tags: [domains]
+      summary: Tag a domain with an industry/niche label
+      description: Assigns (or clears, with an empty tag) a niche label for a domain
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NicheTagUpdate"
+      responses:
+        "200":
+          description: Updated niche info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NicheInfo"
+        "400":
+          description: Invalid tag
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /domain/{domain}/niche/auto:
+    post:
+      operationId: autoDetectDomainNiche
+      tags: [domains]
+      summary: Auto-detect a domain's niche from its homepage
+      description: Fetches the domain's homepage, uses AI to classify it into a niche tag (preferring existing tags), saves the tag, and returns updated niche info
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated niche info with the detected tag
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NicheInfo"
+        "400":
+          description: Invalid domain
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "429":
+          description: Too many auto-detect requests in a short period
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "502":
+          description: Homepage could not be fetched or classified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /niches:
+    get:
+      operationId: listNiches
+      tags: [domains]
+      summary: List all niche tags in use
+      description: Returns every niche tag with how many domains carry it
+      responses:
+        "200":
+          description: Niche tags with domain counts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NicheSummary"
+  /domain/{domain}/referring:
+    get:
+      operationId: getReferringDomains
+      tags: [domains]
+      summary: Referring domains report (edges data)
+      description: Returns referring domains, new/lost referring domains vs the previous release, and spam flags. Data is produced by the monthly edges sync for previously looked-up domains.
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: tld
+          in: query
+          required: false
+          description: When set, the entries list only includes referring domains with this top-level domain (aggregates still cover all referrers)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Referring domains report (available=false when this domain has no edges data yet)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReferringReport"
+  /domain/{domain}/outbound:
+    get:
+      operationId: getOutboundDomains
+      tags: [domains]
+      summary: Outbound domains prospecting list (edges data)
+      description: Returns domains this site links OUT to — a prospecting list of domains the site already trusts. Produced by the monthly edges sync for previously looked-up domains.
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Outbound domains report (available=false when this domain has no edges data yet)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OutboundReport"
+  /gap:
+    get:
+      operationId: getLinkGap
+      tags: [domains]
+      summary: Link Gap Finder
+      description: Compares your domain against up to 4 competitors and returns domains that link to competitors but not to you, with an attainability flag (links to multiple competitors, mid-tier authority, not a mega-site). Requires edges data for the domains involved.
+      parameters:
+        - name: domain
+          in: query
+          required: true
+          description: Your domain
+          schema:
+            type: string
+        - name: competitors
+          in: query
+          required: true
+          description: Comma-separated list of 1-4 competitor domains
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Link gap report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GapReport"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /domain/{domain}/backlinks:
+    get:
+      operationId: getBacklinkSummary
+      tags: [domains]
+      summary: DataForSEO backlink summary and hybrid score
+      description: Returns fresh backlink counts from DataForSEO blended with the Common Crawl authority score into a hybrid score. Responses are cached for 24 hours. configured=false when DataForSEO credentials are not set.
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Backlink summary (fields are null when not configured or not found)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BacklinkSummary"
+        "502":
+          description: DataForSEO request failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /corpus/{domain}/audit:
+    get:
+      operationId: getCorpusAudit
+      tags: [corpus]
+      summary: Common Crawl corpus audit for a domain
+      description: Audits what CCBot actually saw for this domain across recent Common Crawl CDX indexes. First request queues background dumps (the CDX server is rate-limited); poll while building=true. Analysis covers presence, status waste, parameter pollution, canonical presence, redirects/404s, and multi-crawl trends.
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Audit status and (partial) analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CorpusAuditResponse"
+        "400":
+          description: Invalid domain
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "502":
+          description: Common Crawl index unreachable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    ApiMessage:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    SyncStatus:
+      type: object
+      properties:
+        ready:
+          type: boolean
+          description: Whether a dataset is loaded and the app can serve lookups
+        releaseName:
+          type: ["string", "null"]
+          description: Current Common Crawl web graph release, e.g. cc-main-2025-nov-dec-jan-feb
+        releaseDate:
+          type: ["string", "null"]
+          description: Human-readable period the release covers
+        lastSyncedAt:
+          type: ["string", "null"]
+          format: date-time
+          description: When the dataset was last synced
+        domainCount:
+          type: integer
+          description: Number of domains loaded locally
+        totalDomainsInRelease:
+          type: ["integer", "null"]
+          description: Total number of domains in the full Common Crawl release
+      required:
+        - ready
+        - releaseName
+        - releaseDate
+        - lastSyncedAt
+        - domainCount
+        - totalDomainsInRelease
+    DomainScore:
+      type: object
+      properties:
+        domain:
+          type: string
+        authorityScore:
+          type: number
+          description: Common Crawl Authority Score, 0-100 percentile of harmonic centrality
+        popularityScore:
+          type: number
+          description: Common Crawl Popularity Score, 0-100 percentile of PageRank-style centrality
+        authorityRank:
+          type: integer
+          description: Absolute harmonic centrality rank in the release (1 = highest)
+        popularityRank:
+          type: integer
+          description: Absolute PageRank-style rank in the release (1 = highest)
+        totalDomainsInRelease:
+          type: ["integer", "null"]
+        releaseName:
+          type: string
+        releaseDate:
+          type: ["string", "null"]
+          description: Human-readable period the release covers
+        tier:
+          type: string
+          description: Tier badge derived from the authority rank — elite (top 100), top_1k, top_10k, top_100k, or top_1m
+        subdomainCount:
+          type: ["integer", "null"]
+          description: Distinct subdomains (hosts) seen for this domain in the host-level graph; null when not yet scanned
+        subdomainCountComplete:
+          type: ["boolean", "null"]
+          description: False when the host scan was partial, making the count a lower bound
+      required:
+        - domain
+        - authorityScore
+        - popularityScore
+        - authorityRank
+        - popularityRank
+        - totalDomainsInRelease
+        - releaseName
+        - releaseDate
+        - tier
+        - subdomainCount
+        - subdomainCountComplete
+    DomainCompareEntry:
+      type: object
+      properties:
+        domain:
+          type: string
+        found:
+          type: boolean
+        authorityScore:
+          type: ["number", "null"]
+        popularityScore:
+          type: ["number", "null"]
+        authorityRank:
+          type: ["integer", "null"]
+        popularityRank:
+          type: ["integer", "null"]
+      required:
+        - domain
+        - found
+        - authorityScore
+        - popularityScore
+        - authorityRank
+        - popularityRank
+    DomainHistoryResponse:
+      type: object
+      properties:
+        building:
+          type: boolean
+          description: True while past releases are still being scanned for this domain — poll again for more points
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoryPoint"
+      required:
+        - building
+        - points
+    HistoryPoint:
+      type: object
+      properties:
+        releaseName:
+          type: string
+        authorityScore:
+          type: number
+        popularityScore:
+          type: number
+        recordedAt:
+          type: string
+          format: date-time
+      required:
+        - releaseName
+        - authorityScore
+        - popularityScore
+        - recordedAt
+    TopDomain:
+      type: object
+      properties:
+        rank:
+          type: integer
+        domain:
+          type: string
+        authorityScore:
+          type: number
+        popularityScore:
+          type: number
+      required:
+        - rank
+        - domain
+        - authorityScore
+        - popularityScore
+    NicheTagUpdate:
+      type: object
+      properties:
+        tag:
+          type: string
+          description: Industry/niche label; empty string clears the tag
+      required:
+        - tag
+    NicheInfo:
+      type: object
+      properties:
+        domain:
+          type: string
+        tag:
+          type: ["string", "null"]
+        nichePercentile:
+          type: ["number", "null"]
+          description: 0-100 percentile of this domain's authority among tagged domains in the same niche that have rank data in the current release
+        nicheSize:
+          type: integer
+          description: Number of tagged domains in this niche with rank data in the current release
+        nicheRank:
+          type: ["integer", "null"]
+          description: 1-based authority rank within the niche
+      required:
+        - domain
+        - tag
+        - nichePercentile
+        - nicheSize
+        - nicheRank
+    NicheSummary:
+      type: object
+      properties:
+        tag:
+          type: string
+        count:
+          type: integer
+      required:
+        - tag
+        - count
+    ReferringDomainEntry:
+      type: object
+      properties:
+        domain:
+          type: string
+        outboundDegree:
+          type: integer
+          description: How many distinct domains this referring domain links out to
+        authorityScore:
+          type: ["number", "null"]
+          description: The referring domain's own Authority Score (null when it is outside the locally-loaded top domains)
+        flag:
+          type: ["string", "null"]
+          description: low_diversity (possible PBN/low-quality), platform (open platform / directory), or null
+        isNew:
+          type: boolean
+          description: True if this referring domain was not present in the previous release's data
+      required:
+        - domain
+        - outboundDegree
+        - authorityScore
+        - flag
+        - isNew
+    StrengthBuckets:
+      type: object
+      description: Referring domains grouped by their own authority — strong (>=60), medium (30-60), weak (<30), unknown (no local rank data)
+      properties:
+        strong:
+          type: integer
+        medium:
+          type: integer
+        weak:
+          type: integer
+        unknown:
+          type: integer
+      required:
+        - strong
+        - medium
+        - weak
+        - unknown
+    TldCount:
+      type: object
+      properties:
+        tld:
+          type: string
+        count:
+          type: integer
+      required:
+        - tld
+        - count
+    ReferringReport:
+      type: object
+      properties:
+        domain:
+          type: string
+        available:
+          type: boolean
+          description: False when no edges data exists for this domain yet
+        message:
+          type: ["string", "null"]
+          description: Explanation when available=false or data is partial
+        releaseName:
+          type: ["string", "null"]
+        syncedAt:
+          type: ["string", "null"]
+          format: date-time
+        coveragePercent:
+          type: ["number", "null"]
+          description: Percent of the release's edge file scanned (100 = full graph)
+        referringCount:
+          type: integer
+        strengthBuckets:
+          $ref: "#/components/schemas/StrengthBuckets"
+        tldBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/TldCount"
+          description: Referring domains grouped by top-level domain, most common first (top 12)
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReferringDomainEntry"
+        newDomains:
+          type: array
+          items:
+            type: string
+          description: Referring domains present this release but not the previous one
+        lostDomains:
+          type: array
+          items:
+            type: string
+          description: Referring domains present in the previous release but gone now
+        previousReleaseName:
+          type: ["string", "null"]
+      required:
+        - domain
+        - available
+        - message
+        - releaseName
+        - syncedAt
+        - coveragePercent
+        - referringCount
+        - strengthBuckets
+        - tldBreakdown
+        - entries
+        - newDomains
+        - lostDomains
+        - previousReleaseName
+    OutboundEntry:
+      type: object
+      properties:
+        domain:
+          type: string
+        authorityScore:
+          type: ["number", "null"]
+          description: The outbound target's own Authority Score (null when outside the locally-loaded top domains)
+      required:
+        - domain
+        - authorityScore
+    OutboundReport:
+      type: object
+      properties:
+        domain:
+          type: string
+        available:
+          type: boolean
+        message:
+          type: ["string", "null"]
+        releaseName:
+          type: ["string", "null"]
+        count:
+          type: integer
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/OutboundEntry"
+      required:
+        - domain
+        - available
+        - message
+        - releaseName
+        - count
+        - entries
+    GapCompetitor:
+      type: object
+      properties:
+        domain:
+          type: string
+        available:
+          type: boolean
+          description: False when this competitor has no edges data yet (it is added to the watchlist for the next sync)
+        referringCount:
+          type: integer
+      required:
+        - domain
+        - available
+        - referringCount
+    GapEntry:
+      type: object
+      properties:
+        domain:
+          type: string
+        authorityScore:
+          type: ["number", "null"]
+        outboundDegree:
+          type: integer
+          description: The gap domain's total distinct outbound links
+        linksToCount:
+          type: integer
+          description: How many of the given competitors this domain links to
+        attainable:
+          type: boolean
+          description: Heuristic — links to multiple competitors (when 2+ have data), mid-tier authority (20-80), not a mega-site
+        flag:
+          type: ["string", "null"]
+          description: platform (open platform / directory worth listing on), low_diversity, or null
+      required:
+        - domain
+        - authorityScore
+        - outboundDegree
+        - linksToCount
+        - attainable
+        - flag
+    GapReport:
+      type: object
+      properties:
+        domain:
+          type: string
+        available:
+          type: boolean
+          description: False when neither your domain nor any competitor has edges data
+        message:
+          type: ["string", "null"]
+        releaseName:
+          type: ["string", "null"]
+        competitors:
+          type: array
+          items:
+            $ref: "#/components/schemas/GapCompetitor"
+        gapCount:
+          type: integer
+        attainableCount:
+          type: integer
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/GapEntry"
+          description: Gap domains, attainable first, then by authority
+      required:
+        - domain
+        - available
+        - message
+        - releaseName
+        - competitors
+        - gapCount
+        - attainableCount
+        - entries
+    BacklinkSummary:
+      type: object
+      properties:
+        domain:
+          type: string
+        configured:
+          type: boolean
+          description: False when DataForSEO credentials are not set up
+        message:
+          type: ["string", "null"]
+        backlinks:
+          type: ["integer", "null"]
+        referringDomains:
+          type: ["integer", "null"]
+        referringMainDomains:
+          type: ["integer", "null"]
+        brokenBacklinks:
+          type: ["integer", "null"]
+        dataforseoRank:
+          type: ["integer", "null"]
+          description: DataForSEO's own domain rank (0-1000 scale)
+        dataforseoScore:
+          type: ["number", "null"]
+          description: DataForSEO rank rescaled to 0-100
+        ccAuthorityScore:
+          type: ["number", "null"]
+          description: Common Crawl Authority Score for the same domain
+        hybridScore:
+          type: ["number", "null"]
+          description: Blend of the Common Crawl Authority Score and the DataForSEO score (50/50), only when both exist
+        cachedAt:
+          type: ["string", "null"]
+          format: date-time
+          description: When this DataForSEO response was fetched (cached up to 24h)
+      required:
+        - domain
+        - configured
+        - message
+        - backlinks
+        - referringDomains
+        - referringMainDomains
+        - brokenBacklinks
+        - dataforseoRank
+        - dataforseoScore
+        - ccAuthorityScore
+        - hybridScore
+        - cachedAt
+    RecentLookup:
+      type: object
+      properties:
+        domain:
+          type: string
+        found:
+          type: boolean
+        lookedUpAt:
+          type: string
+          format: date-time
+      required:
+        - domain
+        - found
+        - lookedUpAt
+    CorpusAuditResponse:
+      type: object
+      properties:
+        building:
+          type: boolean
+          description: True while CDX dumps are still being fetched — poll for updates
+        progress:
+          type: object
+          properties:
+            fetchedCrawls:
+              type: integer
+            totalCrawls:
+              type: integer
+          required: [fetchedCrawls, totalCrawls]
+        crawlIds:
+          type: array
+          items:
+            type: string
+        enriching:
+          type: boolean
+          description: True while deep enrichment (WARC inspection, sitemap, Wayback, robots history) is still building — keep polling
+        analysis:
+          oneOf:
+            - $ref: "#/components/schemas/CorpusAnalysis"
+            - type: "null"
+      required: [building, enriching, progress, crawlIds, analysis]
+    CorpusAnalysis:
+      type: object
+      properties:
+        crawlId:
+          type: string
+          description: The latest crawl the single-crawl checks ran against
+        totalRecords:
+          type: integer
+        truncated:
+          type: boolean
+        presence:
+          type: object
+          properties:
+            records:
+              type: integer
+            cleanPages:
+              type: integer
+            rating:
+              type: string
+          required: [records, cleanPages, rating]
+        robots:
+          type: object
+          properties:
+            inCorpus:
+              type: boolean
+            status:
+              oneOf: [{ type: string }, { type: "null" }]
+            liveChecked:
+              type: boolean
+            liveBlockedBots:
+              type: array
+              items:
+                type: string
+          required: [inCorpus, status, liveChecked, liveBlockedBots]
+        statusDistribution:
+          type: array
+          items:
+            type: object
+            properties:
+              status:
+                type: string
+              count:
+                type: integer
+            required: [status, count]
+        crawlEfficiency:
+          type: number
+          description: Clean 200s without params / total records
+        duplication:
+          type: object
+          properties:
+            factor:
+              type: number
+            topPaths:
+              type: array
+              items:
+                type: object
+                properties:
+                  path:
+                    type: string
+                  variants:
+                    type: integer
+                  distinctDigests:
+                    type: integer
+                  cleanExists:
+                    type: boolean
+                required: [path, variants, distinctDigests, cleanExists]
+          required: [factor, topPaths]
+        paramClasses:
+          type: array
+          items:
+            type: object
+            properties:
+              class:
+                type: string
+              count:
+                type: integer
+              examples:
+                type: array
+                items:
+                  type: string
+            required: [class, count, examples]
+        brokenParams:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+              reason:
+                type: string
+            required: [url, reason]
+        canonicalMissing:
+          type: array
+          description: Paths that exist ONLY in parameterized form
+          items:
+            type: object
+            properties:
+              path:
+                type: string
+              variantCount:
+                type: integer
+              isHomepage:
+                type: boolean
+            required: [path, variantCount, isHomepage]
+        jsBlindPages:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+              length:
+                type: integer
+            required: [url, length]
+        redirects:
+          type: array
+          items:
+            type: object
+            properties:
+              status:
+                type: string
+              url:
+                type: string
+              target:
+                type: string
+              kind:
+                type: string
+            required: [status, url, target, kind]
+        notFound:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+              diagnosis:
+                type: string
+            required: [url, diagnosis]
+        mimeBreakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              mime:
+                type: string
+              count:
+                type: integer
+            required: [mime, count]
+        publicPdfs:
+          type: array
+          items:
+            type: string
+        subdomains:
+          type: array
+          items:
+            type: object
+            properties:
+              host:
+                type: string
+              count:
+                type: integer
+            required: [host, count]
+        deepPagination:
+          type: array
+          items:
+            type: string
+        healthScore:
+          type: object
+          properties:
+            total:
+              type: number
+            components:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  weight:
+                    type: number
+                  score:
+                    type: number
+                required: [name, weight, score]
+          required: [total, components]
+        severities:
+          type: array
+          items:
+            type: object
+            properties:
+              level:
+                type: string
+              title:
+                type: string
+              detail:
+                type: string
+            required: [level, title, detail]
+        coverageTrend:
+          type: array
+          items:
+            type: object
+            properties:
+              crawlId:
+                type: string
+              cleanPages:
+                type: integer
+              totalRecords:
+                type: integer
+            required: [crawlId, cleanPages, totalRecords]
+        recrawlTop:
+          type: array
+          description: Pages ranked by how many of the analyzed crawls fetched them
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+              appearances:
+                type: integer
+              totalCrawls:
+                type: integer
+            required: [url, appearances, totalCrawls]
+        displacement:
+          type: object
+          properties:
+            droppedContent:
+              type: array
+              items:
+                type: string
+            addedParamUrls:
+              type: array
+              items:
+                type: string
+            verdict:
+              type: string
+          required: [droppedContent, addedParamUrls, verdict]
+        decayedUrls:
+          type: array
+          description: Pages present in older crawls but absent from the newest ones
+          items:
+            type: string
+        dupFamily:
+          type: object
+          description: Duplication beyond params — protocol, host, trailing slash, index.html
+          properties:
+            protocolDupes:
+              type: integer
+            hostDupes:
+              type: integer
+            slashDupes:
+              type: integer
+            indexDupes:
+              type: integer
+            examples:
+              type: array
+              items:
+                type: object
+                properties:
+                  key:
+                    type: string
+                  forms:
+                    type: array
+                    items:
+                      type: string
+                required: [key, forms]
+          required: [protocolDupes, hostDupes, slashDupes, indexDupes, examples]
+        depthCurve:
+          type: array
+          description: Presence rate by path depth — where the crawl wall is
+          items:
+            type: object
+            properties:
+              depth:
+                type: integer
+              seen:
+                type: integer
+              archived:
+                type: integer
+              rate:
+                type: number
+            required: [depth, seen, archived, rate]
+        mimeMismatches:
+          type: object
+          properties:
+            count:
+              type: integer
+            examples:
+              type: array
+              items:
+                type: object
+                properties:
+                  url:
+                    type: string
+                  declared:
+                    type: string
+                  detected:
+                    type: string
+                required: [url, declared, detected]
+          required: [count, examples]
+        paramCardinality:
+          type: array
+          description: Distinct value counts per query parameter — crawl-trap detection
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              distinctValues:
+                type: integer
+              trap:
+                type: boolean
+              examples:
+                type: array
+                items:
+                  type: string
+            required: [key, distinctValues, trap, examples]
+        redirectChains:
+          type: array
+          items:
+            type: object
+            properties:
+              hops:
+                type: array
+                items:
+                  type: string
+              finalStatus:
+                oneOf: [{ type: string }, { type: "null" }]
+              loop:
+                type: boolean
+              endsIn404:
+                type: boolean
+            required: [hops, finalStatus, loop, endsIn404]
+        languages:
+          type: object
+          properties:
+            breakdown:
+              type: array
+              items:
+                type: object
+                properties:
+                  language:
+                    type: string
+                  count:
+                    type: integer
+                required: [language, count]
+            localeMismatches:
+              type: array
+              items:
+                type: object
+                properties:
+                  url:
+                    type: string
+                  localeInPath:
+                    type: string
+                  expected:
+                    type: string
+                  detected:
+                    type: string
+                required: [url, localeInPath, expected, detected]
+          required: [breakdown, localeMismatches]
+        inception:
+          type: object
+          description: When the open web first saw this domain — observed, not claimed
+          properties:
+            firstAuditCrawl:
+              oneOf: [{ type: string }, { type: "null" }]
+            waybackFirstCapture:
+              oneOf: [{ type: string }, { type: "null" }]
+            waybackFirstUrl:
+              oneOf: [{ type: string }, { type: "null" }]
+            waybackYearsActive:
+              type: array
+              items:
+                type: string
+            waybackReachable:
+              type: boolean
+          required: [firstAuditCrawl, waybackFirstCapture, waybackFirstUrl, waybackYearsActive, waybackReachable]
+        inspection:
+          description: WARC-content inspection of sampled pages (null until built)
+          oneOf:
+            - type: "null"
+            - type: object
+              properties:
+                crawlId:
+                  type: string
+                pagesInspected:
+                  type: integer
+                headerNoindex:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      url:
+                        type: string
+                      xRobotsTag:
+                        type: string
+                    required: [url, xRobotsTag]
+                canonicalTable:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      url:
+                        type: string
+                      declared:
+                        oneOf: [{ type: string }, { type: "null" }]
+                      declaredVia:
+                        oneOf: [{ type: string }, { type: "null" }]
+                      cleanInCorpus:
+                        type: boolean
+                      verdict:
+                        type: string
+                    required: [url, declared, declaredVia, cleanInCorpus, verdict]
+              required: [crawlId, pagesInspected, headerNoindex, canonicalTable]
+        sitemapAudit:
+          description: Live sitemap × corpus matrix (null when no sitemap found / not yet fetched)
+          oneOf:
+            - type: "null"
+            - type: object
+              properties:
+                source:
+                  oneOf: [{ type: string }, { type: "null" }]
+                sitemapUrls:
+                  type: integer
+                truncated:
+                  type: boolean
+                inBoth:
+                  type: integer
+                sitemapOnly:
+                  type: integer
+                corpusOnly:
+                  type: integer
+                sitemapOnlyExamples:
+                  type: array
+                  items:
+                    type: string
+                corpusOnlyExamples:
+                  type: array
+                  items:
+                    type: string
+                lastmodLies:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      url:
+                        type: string
+                      lastmod:
+                        type: string
+                      crawlsUnchanged:
+                        type: integer
+                    required: [url, lastmod, crawlsUnchanged]
+              required: [source, sitemapUrls, truncated, inBoth, sitemapOnly, corpusOnly, sitemapOnlyExamples, corpusOnlyExamples, lastmodLies]
+        robotsHistory:
+          description: robots.txt timeline across every crawl since 2013 (null until built)
+          oneOf:
+            - type: "null"
+            - type: object
+              properties:
+                complete:
+                  type: boolean
+                crawlsChecked:
+                  type: integer
+                timeline:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      crawlId:
+                        type: string
+                      timestamp:
+                        type: string
+                      status:
+                        type: string
+                      blockedBots:
+                        oneOf:
+                          - type: "null"
+                          - type: array
+                            items:
+                              type: string
+                    required: [crawlId, timestamp, status, blockedBots]
+                botEvents:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      bot:
+                        type: string
+                      firstBlockedCrawl:
+                        type: string
+                      stillBlocked:
+                        type: boolean
+                    required: [bot, firstBlockedCrawl, stillBlocked]
+              required: [complete, crawlsChecked, timeline, botEvents]
+      required:
+        - crawlId
+        - totalRecords
+        - truncated
+        - presence
+        - robots
+        - statusDistribution
+        - crawlEfficiency
+        - duplication
+        - paramClasses
+        - brokenParams
+        - canonicalMissing
+        - jsBlindPages
+        - redirects
+        - notFound
+        - mimeBreakdown
+        - publicPdfs
+        - subdomains
+        - deepPagination
+        - healthScore
+        - severities
+        - coverageTrend
+        - recrawlTop
+        - displacement
+        - decayedUrls
+        - dupFamily
+        - depthCurve
+        - mimeMismatches
+        - paramCardinality
+        - redirectChains
+        - languages
+        - inception
+        - inspection
+        - sitemapAudit
+        - robotsHistory

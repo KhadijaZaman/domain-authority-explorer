@@ -1,0 +1,19 @@
+---
+name: Common Crawl web graph data
+description: Facts about Common Crawl web graph releases, file formats, and scoring decisions for the Domain Authority Explorer
+---
+
+# Common Crawl web graph facts
+
+- Release list + per-release node/edge counts: `https://index.commoncrawl.org/graphinfo.json` (JSON feed behind web-graphs-index.html). Newest-first array; each entry has `id` (e.g. `cc-main-2026-apr-may-jun`), `crawls`, and `stats.domain.nodes` (~121M domains).
+- Domain ranks file: `https://data.commoncrawl.org/projects/hyperlinkgraph/<id>/domain/<id>-domain-ranks.txt.gz` (note the `/domain/` subdirectory). Tab-separated, header `#harmonicc_pos #harmonicc_val #pr_pos #pr_val #host_rev #n_hosts`. It already contains the reversed domain name (`com.example`), so NO join with the vertices file is needed. Sorted by harmonic centrality — top-N ingestion works by reading the first N lines. Supports HTTP range requests.
+- Scoring decision: linear percentile scores are useless here (every top-1M domain rounds to ~100 of 121M), so the 0–100 scores use a log-rank scale: `100 * (1 - ln(rank)/ln(total))`. **Why:** heavy-tailed centrality; log-rank keeps the number meaningful like DA-style tools. **How to apply:** keep this formula consistent across sync runs; changing it invalidates lookups_history comparability.
+- Sync ingests top N domains (SYNC_LIMIT, default 1M, ~53s incl. download) — full release is ~120M rows, impractical for Postgres here.
+- History floor is Jan 2018: web-graph releases exist from 2017, but the three earliest (through cc-main-2017-aug-sep-oct) have no domain-ranks file (404 / hostgraph-only). Backfill treats 404 as "skip release", not a retryable error. Raw Common Crawl page archives back to 2008 have NO ranking data — 2008–2016 history is impossible.
+- History is self-healing: the api-server queues an on-demand single-domain backfill (in-process FIFO, `historyBackfill.ts`) when the history endpoint finds uncovered releases; frontend polls while `building: true`. Bulk script remains for monthly sync.
+- `__absent__:<domain>` marker rows in lookups_history are treated as PERMANENT coverage and never rescanned. **Why:** avoids rescanning ~15MB per release per domain. **How to apply:** any scanner writing markers must be tri-state — only a clean, complete top-N read is a definitive miss; timeouts/truncated gzip streams must throw and leave the release uncovered, or valid history is suppressed forever.
+- A single-point trend chart usually means "not backfilled yet", NOT "wasn't ranked before" — check for absent markers before concluding the domain is new.
+- Background `nohup ... &` processes launched from a shell command get killed when the command ends in this environment — run long jobs in the foreground of a shell call instead.
+- Monthly ingestion is automatic: the api-server runs a release watcher (boot + every 12h check of graphinfo.json vs sync_meta.last_processed_release) that runs the full pipeline in-process. All pipeline entrypoints (watcher + `sync:all` CLI) serialize through Postgres advisory lock key 823471902 — any new sync entrypoint must take the same lock or concurrent delete-then-reinsert runs can serve partial data. Scripts export `run*()` functions with CLI guards; the run functions must never call `pool.end()` (shared with the api-server).
+- Deep-link 404s in the published app were a stale deployment, not code: artifact.toml already has the SPA rewrite `/* -> /index.html`; a re-publish fixes it. Same pattern recurred with "Try an example" buttons "broken" — Playwright-verified fine in dev; external reviewer feedback tests the stale published build, so reproduce in dev before assuming a code bug.
+- Design subagents may overwrite `vite.config.ts` and drop the required PORT/BASE_PATH wiring, and may emit duplicate `.ts` copies of `.tsx` shadcn ui files (JSX in .ts breaks typecheck) — check for both after a design pass.

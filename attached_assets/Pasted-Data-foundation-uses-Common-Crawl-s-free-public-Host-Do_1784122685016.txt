@@ -1,0 +1,15 @@
+Data foundation: uses Common Crawl’s free, public Host/Domain-level Web Graph instead of running its own crawler — three monthly releases merged into one graph.
+Domain-level graph construction: collapses page-level links into domain-to-domain edges (about 121 million nodes, 3.9 billion edges), so it tracks referring domains, not raw URLs.
+Harmonic Centrality algorithm: computes the average inverse shortest-path distance from every other domain to a given domain, rewarding domains that sit centrally in the link graph. Displayed as HC Rank / Authority Score.
+PageRank algorithm: the classic recursive vote-weighting model, where links from highly-linked domains count more. Displayed as PageRank Rank / Citation Score.
+Score normalization: raw graph-theory values (tiny floating point numbers) are converted into readable percentile ranks and 0-100 style scores.
+Referring-domains counting: counts distinct linking domains rather than total backlinks, so one domain linking 500 times still counts once.
+Outbound-domains logic: the same edge list read in reverse, used to build prospecting lists of domains a site already trusts enough to link out to.
+TLD distribution logic: groups referring domains by top-level domain (.com, .ai, .io, etc.) to show link-profile composition at a glance.
+Network graph rendering: a visualization layer plotting referring-domain relationships radially; uses the same edge data as the other metrics, just displayed differently.
+Link Gap Finder (set-difference logic): computes domains that link to one or more competitor domains but not to your domain, producing a raw gap list.
+Relevance/attainability filter: applies heuristics on top of the raw gap list to flag a smaller subset as niche-relevant and realistically attainable.
+Platform-opportunity detection: separately flags very-high-outbound-link domains (like github.io) as open platforms worth listing on, versus one-off editorial link targets.
+Serving architecture: pre-computed results only (nothing scraped live) - Cloudflare KV plus a Cloudflare Worker for instant CC Rank Checker lookups, and a thin Worker proxying a Hugging Face Space backend for the heavier Referring Domains / Link Gap logic.
+Public API layer: both tools expose plain JSON endpoints (/api/report and /api/gap) behind the scenes, so the same logic can be scripted or embedded without the front-end.
+Freshness/update-cadence logic: tied to Common Crawl’s own release schedule rather than continuous crawling, so brand-new pages or links can take time to appear.

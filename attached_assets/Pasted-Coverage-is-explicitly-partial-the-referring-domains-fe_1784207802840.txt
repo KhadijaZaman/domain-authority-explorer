@@ -1,0 +1,25 @@
+Coverage is explicitly partial: the referring-domains feature for github.com reported it had only scanned "6.85% of the release's link graph," with counts marked as a lower bound. So the "backlink" data is a sample, not exhaustive.
+Historical trend data is being backfilled asynchronously ("we're scanning past Common Crawl releases... new points appear automatically"), meaning the product ships before its own dataset is fully populated for less-popular domains.
+
+Use case
+
+Genuinely useful as a transparent, free alternative directional signal to Moz/Ahrefs/Semrush authority metrics, especially for people who want to understand link-graph structure without paying for tools or trusting a black-box proprietary formula.
+The "Corpus Audit" angle is a smart, somewhat novel positioning: since most commercial AI crawlers don't publish logs but CCBot does, this becomes a rough stand-in for "is my site even visible to crawlers that feed AI answer engines" — relevant to the emerging AEO/GEO (answer engine optimization) conversation.
+Link Gap Finder and Bulk Compare cover standard competitive-research workflows agencies and in-house SEOs actually use day to day.
+
+Implications
+
+Because it's explicit that this is Common Crawl's own centrality/PageRank-style metric and not Google's actual ranking algorithm or any proprietary DA formula, users need to treat the score as one directional signal about link-graph structure, not a proxy for actual search rankings or traffic.
+Monthly-cadence data means it's inherently lagging — new links or lost links won't show up for weeks, which the tool itself acknowledges in its "Data Freshness Reality" guidance.
+Because Common Crawl doesn't crawl the entire web and skews toward sites already well-linked (crawler bias), smaller/newer/JS-heavy sites are likely underrepresented, which can distort both individual scores and the "Top 1000" leaderboard.
+
+Gaps / issues I observed
+
+Misleading-looking result for a placeholder domain: example.com (IANA's reserved test domain, not a real active site) scored 77.49/100, ranked #66 globally out of 121M domains, and was tagged "ELITE — stronger than 99.9% of the web's top 1M ranked domains." That's a strong signal the underlying metric conflates "structurally well-referenced in the crawl" (example.com is referenced constantly in documentation, code samples, and specs across the web) with "authoritative content site" — a real methodological gap if users interpret the score as an SEO-quality signal rather than a pure graph-centrality statistic.
+Partial/incomplete data presented as authoritative-looking numbers: the referring-domains view for github.com is based on only 6.85% graph coverage, yet the UI still surfaces a specific "25,000 referring domains" figure and strength buckets without heavy caveats on the main score cards — this could mislead users doing competitive analysis if they don't read the fine print.
+Nonstandard release naming: Common Crawl's real archives are named like CC-MAIN-2024-10; this tool's label ("cc-main-2026-apr-may-jun") doesn't match that public naming convention, which raises a question about whether it's using actual Common Crawl archives directly or a custom/derived dataset labeled to resemble one — worth clarifying before citing this as "powered by Common Crawl" in client-facing reports.
+No visible methodology page/whitepaper with exact formulas, sampling methodology, or update logs beyond the in-app tooltips and cheatsheet — for anyone using this for client reporting, the lack of a rigorous methodology doc is a trust gap versus established tools like Moz (which publishes model details) or Ahrefs.
+Single-page app with client-side routes (e.g., /guide, /corpus) return a 404 if navigated to directly rather than through in-app links, indicating routing isn't server-rendered — a minor but real engineering rough edge affecting shareability/bookmarking of specific tool pages.
+As a Replit-hosted app (not a company domain), there's no visible information about uptime guarantees, rate limits, or data-retention/privacy policy — something to flag if a business intends to rely on it for recurring SEO workflows.
+
+If you want, I can dig deeper into any one piece (e.g., stress-test the Link Gap Finder or Bulk Compare with real client domains, or check how sensitive scores are to input variations like www vs. non-www).

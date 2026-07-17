@@ -1,0 +1,26 @@
+{
+  "name": "@workspace/scripts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./pipeline": "./src/pipeline.ts"
+  },
+  "scripts": {
+    "hello": "tsx ./src/hello.ts",
+    "sync": "tsx ./src/sync-common-crawl.ts",
+    "sync:edges": "tsx ./src/sync-edges.ts",
+    "sync:subdomains": "tsx ./src/sync-subdomains.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "sync:backfill": "tsx ./src/backfill-history.ts",
+    "sync:all": "tsx ./src/run-pipeline.ts"
+  },
+  "dependencies": {
+    "@workspace/db": "workspace:*",
+    "drizzle-orm": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "catalog:"
+  }
+}

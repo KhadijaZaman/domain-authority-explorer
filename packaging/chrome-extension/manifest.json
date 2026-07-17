@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Domain Authority Explorer",
+  "version": "1.0.0",
+  "description": "Check any site's Common Crawl Authority and Popularity Score straight from the toolbar.",
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": ["https://*/*", "http://*/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Domain Authority Explorer"
+  },
+  "options_page": "options.html"
+}

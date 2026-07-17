@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Domain Authority Explorer"
+version = "1.0.0"
+id = "artifacts/domain-authority-explorer"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20853
+
+[services.development]
+run = "pnpm --filter @workspace/domain-authority-explorer run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/domain-authority-explorer", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/domain-authority-explorer/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20853"
+BASE_PATH = "/"

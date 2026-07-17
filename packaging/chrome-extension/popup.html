@@ -1,0 +1,87 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root {
+        --primary: #2f2fd3;
+        --bg: #fafafa;
+        --fg: #17171f;
+        --muted: #6b6b76;
+        --border: #e4e4ea;
+      }
+      body {
+        width: 320px;
+        margin: 0;
+        font-family: system-ui, -apple-system, sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+      }
+      .logo {
+        background: var(--primary);
+        color: #fff;
+        font-weight: 800;
+        font-size: 11px;
+        padding: 3px 5px;
+        border-radius: 3px;
+        letter-spacing: 0.5px;
+      }
+      header b { font-size: 14px; }
+      main { padding: 16px; }
+      .domain {
+        font-family: ui-monospace, monospace;
+        font-size: 13px;
+        margin-bottom: 12px;
+        word-break: break-all;
+      }
+      .scores { display: flex; gap: 10px; }
+      .card {
+        flex: 1;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 10px;
+        background: #fff;
+      }
+      .card .label {
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+      .card .value {
+        font-size: 26px;
+        font-weight: 800;
+        font-family: ui-monospace, monospace;
+        color: var(--primary);
+      }
+      .card .rank { font-size: 10px; color: var(--muted); margin-top: 4px; }
+      .status { font-size: 12px; color: var(--muted); line-height: 1.5; }
+      .error { color: #b3261e; }
+      footer {
+        padding: 10px 16px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+      }
+      a { color: var(--primary); text-decoration: none; }
+    </style>
+  </head>
+  <body>
+    <header><span class="logo">DA</span><b>Authority Explorer</b></header>
+    <main id="main"><p class="status">Loading…</p></main>
+    <footer>
+      <a id="open-app" href="#" target="_blank">Open full report</a>
+      <a href="options.html" target="_blank">Settings</a>
+    </footer>
+    <script src="popup.js"></script>
+  </body>
+</html>

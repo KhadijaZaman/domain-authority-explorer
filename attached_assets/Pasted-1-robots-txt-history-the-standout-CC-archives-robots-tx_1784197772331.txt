@@ -1,0 +1,66 @@
+1. robots.txt history — the standout
+CC archives robots.txt per crawl, in its own bucket. You saw it in your dump:
+"filename": ".../robotstxt/CC-MAIN-20260610112837-...warc.gz"
+That means you can fetch any domain's robots.txt as it stood in every crawl since 2013, and diff it.
+So you can date, precisely and at scale: when did each publisher block GPTBot? CCBot? ClaudeBot? Not approximately — to the crawl.
+Now join that against your 22.7M citations. blocked_date vs citation_trend. That's the study. Did blocking GPTBot actually cost anyone visibility, or did retrieval route around it? Nobody has an answer because nobody's built the timeline. You can build it from free data.
+This is the best idea in this message. It might be better than the homepage post.
+2. Response headers from the WARC
+WARC stores the full HTTP response — headers included. Byte-range fetch gets you them. That surfaces things HTML inspection can't:
+
+X-Robots-Tag: noindex — noindex served as a header. Invisible in view-source. Sites ship this by accident constantly, usually a staging config that escaped.
+Link: rel="canonical" — canonical via header, not tag. Overlooked by every crawler tool.
+Cache-Control, Vary, CDN identification, server stack.
+
+A page 200-ing in CC with a header noindex is doing nothing for you anywhere. Free to check, nobody checks it.
+3. Declared canonical vs corpus canonical
+We only tested one side. Two-sided is much stronger:
+Declared canonical (from archived HTML)Clean URL in corpus?VerdictPresent, self-referencingYesHealthyPresent, self-referencingNoDeclared correctly, never fetched. Link graph problem, not a tag problem.MissingNoTag problemPoints elsewhere—Check it's intentional
+Row 2 is your homepage, almost certainly. You may already have the canonical tag — nobody's linking you clean, so it never got fetched bare. That distinction changes the fix entirely: canonical tags won't help, asking the directories to drop the params will.
+Worth checking before you write the post. It would sharpen the thesis.
+4. Sitemap × corpus matrix
+Fetch sitemap.xml, diff against CC records:
+In corpusNot in corpusIn sitemapHealthyDiscovery failure — you declared it, nobody linked itNot in sitemapOrphan, or sitemap incompleteInvisible
+Top-right is the money cell. That's likely where your 16 missing posts land — and it distinguishes "displaced" from "never discovered," which is exactly the ambiguity blocking your post.
+5. lastmod lie detector
+Sitemap says lastmod: 2026-07-01. CC digest hasn't changed across six crawls.
+The sitemap is lying. Usually a CMS stamping lastmod on every build regardless of whether content changed. Google is widely believed to discount lastmod precisely because so many sitemaps do this — you can now prove whether a given site is one of them.
+Great audit finding, and a great benchmark study.
+6. Corpus inception date
+Walk backwards through crawls. Find the first one containing a domain or URL.
+That's when the open web first saw you — observed, not claimed. Google's historical-data patent family treats document inception date as a ranking input. You can't see Google's copy. You can compute CC's.
+Per-page version is useful too: first_crawl - publish_date = discovery lag, benchmarked against competitors. "Your posts get crawled 40 days after publish. Theirs, 8."
+7. Redirect chains and loops
+You have redirect targets in the CDX. Build the graph.
+
+Multi-hop chains (/a → /b → /c) — each hop leaks
+Loops — free to detect, embarrassing to have
+Chains ending in 404 — the worst case
+
+Your /kiva/?utm → /?utm is a one-hop that terminates in a duplicate. Bet there are longer ones.
+8. Depth vs presence curve
+Count path segments per URL. Plot presence rate by depth.
+depth 1: 100%
+depth 2:  80%
+depth 3:  30%
+depth 4:   0%   ← the wall
+Classic crawl-budget logic, but nobody's ever shown a client the actual wall on their own site. Visually devastating in a report.
+9. The duplication family we missed
+We only caught params. There are four more:
+TypeSURT signatureProtocolhttp:// and https:// both 200Hostcom,example)/ and com,example,www)/ both 200Trailing slash/x and /x/ both 200 (not redirecting)Index/ and /index.html both 200
+Each doubles a page in the corpus. All trivially detectable from the urlkey.
+10. The languages field
+CC runs language detection per document and it's multi-valued ("eng,fra").
+For international sites: does CC see all your locales? Is your Spanish page detected as spa — or eng, because the nav is English and the body is thin? Cross-check against hreflang.
+Nobody is auditing hreflang against an actual language-detection ground truth. This is a free one.
+11. mime vs mime-detected
+Server declares one thing, CC detects another. Real bug class — misconfigured content-type. Two fields, one comparison.
+12. Crawl trap detection
+Per-parameter value cardinality:
+?date= → 400 distinct values     ← calendar trap
+?color= → 8 distinct values      ← normal facet
+High cardinality on one param = infinite space. Ecommerce and event sites are riddled with these.
+13. Wayback join — free coverage doubling
+The Internet Archive CDX API uses the same protocol (both run pywb). Same query shape:
+http://web.archive.org/cdx/search/cdx?url=example.com&matchType=domain&output=json
+Wayback goes back to 1996 and crawls far more often. Join the two and your history gets dense enough for real trend work — and it costs you nothing but a second fetch. Different crawler, different biases, so disagreements between them are themselves informative.
